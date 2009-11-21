@@ -21,7 +21,7 @@ RUNIT
 - create ~root/app-runsvdir && install service code (run & finish), w/chpst to app/app-web
 - symlink ~root/app-runsvdir to /service
 
-![runit service architecture](http://github.com/apinstein/php-app-container/raw/master/rendered/runit-architecture.png)
+![runit service architecture](http://github.com/apinstein/simple-app-container/raw/master/rendered/runit-architecture.png)
 
 SUDO
 
