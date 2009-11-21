@@ -1,0 +1,20 @@
+Tasks to bootstrap an "application" user container:
+
+USER PERMISSIONS
+1) add user "app"; install ssh key
+2) add group "app-web" (means both app and httpd user can access files)
+
+RUNIT
+3) create ~app/service directory (app can symlink services there as needed)
+4) create ~root/app-runsvdir && install service code (run & finish), w/chpst to app/app-web
+5) symlink ~root/app-runsvdir to /service
+
+SUDO
+6) give sudo apachectl restart privs to app
+
+ANYTHING ELSE?
+
+Applications can now manage themselves:
+- Install services via "ln -s /path/to/service ~/app/service
+- Restart apache via "sudo apachectl restart"
+- Managing cron deployments via "crontab /path/to/crontab"
