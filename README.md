@@ -21,6 +21,8 @@ RUNIT
 - create ~root/app-runsvdir && install service code (run & finish), w/chpst to app/app-web
 - symlink ~root/app-runsvdir to /service
 
+![runit service architecture](http://github.com/apinstein/php-app-container/blob/master/rendered/runit-architecture.png)
+
 SUDO
 
 - give sudo apachectl restart privs to app
