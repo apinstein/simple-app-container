@@ -34,4 +34,6 @@ Applications can now manage themselves:
 - Install services via "ln -s /path/to/service ~/app/service
 - Restart apache via "sudo apachectl restart"
 - Managing cron deployments via "crontab /path/to/crontab"
+- install monit config
+- install logrotate scripts
 
