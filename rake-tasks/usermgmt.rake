@@ -201,7 +201,7 @@ class UserManagement_linux
   def addGroupMembership(groupName, userName)
     raise "Group #{groupName} doesn't exit." if !groupId(groupName)
     raise "User #{userName} doesn't exit." if !userId(userName)
-    sh "/usr/sbin/useradd -G #{groupName} #{userName}"
+    sh "/usr/sbin/usermod -a -G #{groupName} #{userName}"
   end
 
   def userBelongsToGroup?(groupName, userName)
