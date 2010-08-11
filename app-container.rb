@@ -11,6 +11,7 @@ Capistrano::Configuration.instance(true).load do
     before "deploy:setup",          "sac:setup:init"
     after  "sac:setup:init",        "sac:setup:usersAndGroups"
     after  "sac:setup:init",        "sac:setup:addMySshKey"
+    after  "sac:setup:addMySshKey", "sac:setup:seedRepositoryHost"
     after  "sac:setup:init",        "sac:setup:runit"
 
     # wire into restart
@@ -72,6 +73,19 @@ Capistrano::Configuration.instance(true).load do
                             run "#{sudo} sh -c 'cat #{uploadedKeyFile} >> ~#{sac_user}/.ssh/authorized_keys'"
                             run "rm #{uploadedKeyFile}"
                         end
+                    end
+                end
+            end
+
+            desc "Seed the known_hosts file with the host key for the repo server"
+            task :seedRepositoryHost do
+                # initialize the known hosts file for the remote scm
+                if scm == :git
+                    githost = repository.split(':').first
+                    puts "Seeding your known hosts file for repository host: #{githost}"
+                    begin
+                        run "ssh -o StrictHostKeyChecking=no #{githost}"
+                    rescue
                     end
                 end
             end
