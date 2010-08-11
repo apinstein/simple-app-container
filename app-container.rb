@@ -44,8 +44,19 @@ Capistrano::Configuration.instance(true).load do
                     puts "Changing permission for #{deploy_to} to #{sac_user}:#{sac_group}"
                     run "#{sudo} chown #{sac_user}:#{sac_group} #{deploy_to}"
                     run "#{sudo} chmod 2775 #{deploy_to}"
+                end
+            end
 
-                    # install public key
+            desc "Add the current user's ssh key to the authorized_keys file for :sac_user"
+            task :addMySshKey do
+                only_on_remotes do
+                    as_admin do
+                        uploadedKeyFile = "#{deploy_to}/new_public_key"
+                        upload "~/.ssh/id_dsa.pub", uploadedKeyFile
+                        run "#{sudo} mkdir -p ~#{sac_user}/.ssh"
+                        run "#{sudo} cat #{uploadedKeyFile} >> ~#{sac_user}/.ssh/authorized_keys"
+                        run "rm #{uploadedKeyFile}"
+                    end
                 end
             end
 
@@ -89,12 +100,18 @@ Capistrano::Configuration.instance(true).load do
     # user-hacking from http://www.pgrs.net/2008/8/6/switching-users-during-a-capistrano-deploy
     def as_admin()
       old_user, old_pass = user, password
-      set :user, sac_admin()
       close_sessions
+      set :user, sac_admin()
       yield
       set :user, old_user
       set :password, old_pass
       close_sessions
+    end
+
+    def only_on_remotes()
+        if stage != :local
+            yield
+        end
     end
 
     def close_sessions
