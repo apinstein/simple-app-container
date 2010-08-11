@@ -10,6 +10,7 @@ Capistrano::Configuration.instance(true).load do
     # wire into normal deploy
     before "deploy:setup",          "sac:setup:init"
     after  "sac:setup:init",        "sac:setup:usersAndGroups"
+    after  "sac:setup:init",        "sac:setup:addMySshKey"
     after  "sac:setup:init",        "sac:setup:runit"
 
     # wire into restart
@@ -51,11 +52,26 @@ Capistrano::Configuration.instance(true).load do
             task :addMySshKey do
                 only_on_remotes do
                     as_admin do
-                        uploadedKeyFile = "#{deploy_to}/new_public_key"
-                        upload "~/.ssh/id_dsa.pub", uploadedKeyFile
-                        run "#{sudo} mkdir -p ~#{sac_user}/.ssh"
-                        run "#{sudo} cat #{uploadedKeyFile} >> ~#{sac_user}/.ssh/authorized_keys"
-                        run "rm #{uploadedKeyFile}"
+                        publicKey = `cat ~/.ssh/id_rsa.pub`
+                        publicKey.chomp!
+                        installKey = false
+                        begin
+                            run "#{sudo} grep -nc '#{publicKey}' /home/#{sac_user}/.ssh/authorized_keys"
+                            puts "Your SSH key is already installed."
+                        rescue
+                            installKey = true
+                        end
+
+                        if installKey
+                            puts "Installing your SSH key."
+                            uploadedKeyFile = "#{deploy_to}/new_public_key"
+                            upload File.expand_path("~/.ssh/id_rsa.pub"), uploadedKeyFile
+                            run "#{sudo} mkdir -p ~#{sac_user}/.ssh"
+                            run "#{sudo} chown #{sac_user}:#{sac_user} ~#{sac_user}/.ssh"
+                            run "#{sudo} chmod 700 ~#{sac_user}/.ssh"
+                            run "#{sudo} sh -c 'cat #{uploadedKeyFile} >> ~#{sac_user}/.ssh/authorized_keys'"
+                            run "rm #{uploadedKeyFile}"
+                        end
                     end
                 end
             end
