@@ -79,8 +79,8 @@ class UserManagement_MacOSX
     opts = {
       :password   => '*',
       :realName   => userName,
-      :home       => '/dev/null',
-      :shell      => '/dev/null',
+      :home       => "/Users/#{userName}",
+      :shell      => nil,
     }.merge(opts)
 
     # create user
@@ -88,8 +88,9 @@ class UserManagement_MacOSX
     sh "sudo dscl . create /Users/#{userName} UniqueID #{uid}"
     sh "sudo dscl . create /Users/#{userName} Password \"#{opts[:password]}\""
     sh "sudo dscl . create /Users/#{userName} RealName \"#{opts[:realName]}\""
-    sh "sudo dscl . create /Users/#{userName} NFSHomeDirectory \"#{opts[:home]}\""
-    sh "sudo dscl . create /Users/#{userName} UserShell \"#{opts[:shell]}\""
+    if opts[:shell]
+      sh "sudo dscl . create /Users/#{userName} UserShell \"#{opts[:shell]}\""
+    end
 
     # create user/group
     gid=groupId(userName)
@@ -99,6 +100,13 @@ class UserManagement_MacOSX
     # wire group
     sh "sudo dscl . create /Users/#{userName} PrimaryGroupID #{gid}"
     sh "sudo dscl . create /Groups/#{userName} GroupMembership #{userName}"
+
+    # has to be done last since it needs the user to exist!
+    if opts[:home]
+      sh "sudo mkdir -p /Users/#{userName}"
+      sh "sudo chown #{userName}:#{userName} /Users/#{userName}"
+      sh "sudo dscl . create /Users/#{userName} NFSHomeDirectory \"#{opts[:home]}\""
+    end
   end
 
   def deleteUser(userName)
@@ -170,12 +178,15 @@ class UserManagement_linux
     opts = {
       :password   => '*',
       :realName   => userName,
-      :home       => '/dev/null',
-      :shell      => '/dev/null',
+      :home       => nil,
+      :shell      => nil,
     }.merge(opts)
 
     # create user
-    sh "/usr/sbin/useradd --home-dir \"#{opts[:home]}\" --shell \"#{opts[:shell]}\" #{userName}"
+    args = []
+    opts[:home] && args.push("--home-dir \"#{opts[:home]}\"")
+    opts[:shell] && args.push("--shell \"#{opts[:shell]}\"")
+    sh "/usr/sbin/useradd #{args.join(' ')} #{userName}"
     # group created automatically
   end
 
