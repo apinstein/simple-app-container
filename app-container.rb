@@ -92,7 +92,20 @@ Capistrano::Configuration.instance(true).load do
 
             desc "Set up runit"
             task :runit do
-                #sac_rake("'usermgmt:user:add[foo]'", { :sudo => true })
+                runit_config = fetch(:sac_runit_config, nil)
+                if runit_config
+                    runit_config[:app_runsvdir_dir]     ||= "#{sac_dir}/runsvdir"
+                    runit_config[:app_services_dir]     ||= "#{deploy_to}/current/service"
+                    runit_config[:app_user]             ||= sac_user
+                    runit_config[:app_group]            ||= sac_group
+                    runit_config[:system_services_dir]  ||= "/service"
+
+                    as_admin do
+                        # why does this recurse infitely?
+                        sac_rake("'runit:create_runsvdir[#{runit_config[:app_runsvdir_dir]},#{runit[:app_services_dir]},#{runit_config[:app_user]},#{runit[:app_group]}]'", {})
+                        sac_rake("'runit:install_runsvdir[#{runit_config[:app_runsvdir_dir]},#{runit[:system_services_dir]}]'", {})
+                    end
+                end
             end
         end
 
@@ -100,6 +113,19 @@ Capistrano::Configuration.instance(true).load do
             desc "Restart runit"
             task :runit do
                 puts "runit automatically notices new files when the current/ symlink is rewired."
+            end
+            
+            desc "Reload crontab"
+            task :crontab do
+                crontab = fetch(:sac_crontab, nil)
+                if crontab
+                    puts "Reloading crontab for #{sac_user}."
+                    if user != sac_user
+                        sac_run("crontab -u #{sac_user} #{crontab}", { :sudo => true } )
+                    else
+                        sac_run("crontab #{crontab}")
+                    end
+                end
             end
         end
     end
@@ -119,6 +145,16 @@ Capistrano::Configuration.instance(true).load do
             rakelibdir = "#{deploy_to}/#{sac_dir}/rake-tasks"
 
             command = "cd #{deploy_to} && " + (options[:sudo] ? sudo : nil) + " rake -R #{rakelibdir} #{command}"
+            run command
+        end
+    end
+
+    def sac_run(command, options = {})
+        if stage == :local
+            command = "sudo #{command}" if options[:sudo]
+            system(command)
+        else
+            command = "#{sudo} #{command}" if options[:sudo]
             run command
         end
     end

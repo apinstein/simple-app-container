@@ -1,49 +1,40 @@
 require 'rake'
 
-# NOTE: this isn't tested yet; just copied out and cleaned up from another place where it worked
+namespace :runit do
+    desc "Create app-level runsvdir."
+    task :create_runsvdir, :app_runsvdir_dir, :app_services_dir, :app_user, :app_group do |t,args|
+        # asserts...
 
-########### EXPECTED CONFIG VARS ############
-# appUser = myapp
-# appGroup = myappWeb
-# runit_system_service_dir => typically /service
-# runit_app_runsvdir_service_install_location => typically /root/user-services
-# runit_app_services => typically ~/service
-###########################################
+        # create "service" which is actually going to be a runsvdir to monitor another directory
+        FileUtils.mkdir_p args[:app_runsvdir_dir]
 
-namespace :app_container do
-    desc "Setup runit services"
-    task :setup_runit do
-        puts "Creating and installing app-level runit service directory. (requires root)"
-
-        appRunsvrdirName = "#{config['appUser']}-runsvdir"
-        appRunsvrdir = "#{config['runit_app_runsvdir_service_install_location']}/#{appRunsvrdirName}"
-        FileUtils.mkdir_p appRunsvrdir
-
-        # runner
-        File.open("#{appRunsvrdir}/run", 'w') do |f|
+        # runsvdir run script
+        File.open("#{args[:app_runsvdir_dir]}/run", 'w') do |f|
           f.write <<-eos
 #!/bin/sh
 exec 2>&1
-exec chpst -u #{config['appUser']}:#{config['appGroup']} runsvdir #{config['runit_app_services']} 'log: ...........................................................................................................................................................................................................................................................................................................................................................................................................'
+exec chpst -u #{args[:app_user]}:#{args[:app_group]} runsvdir #{args[:app_services_dir]} 'log: ...........................................................................................................................................................................................................................................................................................................................................................................................................'
             eos
         end
-        File.chmod(0750, "#{appRunsvrdir}/run")
+        File.chmod(0750, "#{args[:app_runsvdir_dir]}/run")
 
-        # finish script -- to kill all local services
-        File.open("#{appRunsvrdir}/finish", 'w') do |f|
+        # runsvdir finish script -- to kill all supervised services
+        File.open("#{args[:app_runsvdir_dir]}/finish", 'w') do |f|
           f.write <<-eos
 #!/bin/sh
-find #{config['runit_app_services']} -mindepth 1 -maxdepth 1 -type d -print | xargs sv exit
+find #{args[:app_services_dir]} -mindepth 1 -maxdepth 1 -type d -print | xargs sv exit
             eos
         end
-        File.chmod(0750, "#{appRunsvrdir}/finish")
-        
-        puts "Symlinking app-level runsvdir: #{appRunsvrdir} => #{config['runit_system_service_dir']}"
-        if !File.exists? "#{config['runit_system_service_dir']}/#{appRunsvrdirName}"
+        File.chmod(0750, "#{args[:app_runsvdir_dir]}/finish")
+    end
+
+    desc "Install app-level runsvdir as a system service. Requires root."
+    task :install_runsvdir, :app_runsvdir_dir, :system_services_dir do |t,args|
+        if !File.exists? "#{args[:system_services_dir]}/#{appRunsvrdirName}"
             begin
-                File.symlink("#{appRunsvrdir}", "#{config['runit_system_service_dir']}")
+                File.symlink("#{args[:app_runsvdir_dir]}", "#{args[:system_services_dir]}")
             rescue
-                puts "couldn't install #{config['appUser']} runsvdir symlink."
+                puts "couldn't install #{args[:app_runsvdir_dir]} runsvdir symlink."
             end
         end
     end
