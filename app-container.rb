@@ -102,8 +102,8 @@ Capistrano::Configuration.instance(true).load do
 
                     as_admin do
                         # why does this recurse infitely?
-                        sac_rake("'runit:create_runsvdir[#{runit_config[:app_runsvdir_dir]},#{runit[:app_services_dir]},#{runit_config[:app_user]},#{runit[:app_group]}]'", {})
-                        sac_rake("'runit:install_runsvdir[#{runit_config[:app_runsvdir_dir]},#{runit[:system_services_dir]}]'", {})
+                        sac_rake("'runit:create_runsvdir[#{runit_config[:app_runsvdir_dir]},#{runit_config[:app_services_dir]},#{runit_config[:app_user]},#{runit_config[:app_group]}]'", {})
+                        sac_rake("'runit:install_runsvdir[#{application},#{runit_config[:app_runsvdir_dir]},#{runit_config[:system_services_dir]}]'", { :sudo => true })
                     end
                 end
             end
@@ -140,6 +140,7 @@ Capistrano::Configuration.instance(true).load do
             command = "rake -R #{rakelibdir} #{command}"
             command = "sudo #{command}" if options[:sudo]
 
+            puts command # we print b/c system doesn't
             system(command)
         else
             rakelibdir = "#{deploy_to}/#{sac_dir}/rake-tasks"
