@@ -1,24 +1,38 @@
 Capistrano::Configuration.instance(true).load do
     # configuration defaults
     set :sac_dir,                       "sac"
+    set :sac_enable,                    [
+                                            :usersAndGroups,
+                                            :runit,
+                                            :crontab
+                                        ]
     set(:sac_user)                      { application.sub(/[^A-Za-z0-9_]/, '') }
     set(:sac_group)                     { "#{sac_user}_web" }
+    set(:sac_app_conf_dir)              { "#{deploy_to}/current/conf" }
+    set(:sac_crontab)                   { "#{sac_app_conf_dir}/crontab" }
 
     # auto-set cap configutation opinions
     set(:user)                          { sac_user }
 
-    # wire into normal deploy
+    # wire into deploy
+    before "deploy:setup",          "sac:setup:wire"
     before "deploy:setup",          "sac:setup:init"
-    after  "sac:setup:init",        "sac:setup:usersAndGroups"
-    after  "sac:setup:init",        "sac:setup:addMySshKey"
-    after  "sac:setup:addMySshKey", "sac:setup:seedRepositoryHost"
-    after  "sac:setup:init",        "sac:setup:runit"
+    before "deploy:restart",        "sac:restart:wire"
 
-    # wire into restart
-    after "deploy:restart",         "sac:restart:runit"
+    # special hook - not sure best place to put this atm
+    after  "sac:setup:usersAndGroups",  "sac:setup:addMySshKey"
+    after  "sac:setup:addMySshKey",     "sac:setup:seedRepositoryHost"
 
     namespace :sac do
         namespace :setup do
+            desc "Install setup hooks"
+            task :wire do
+                sac_enable.each do |plugin|
+                    setupTask = plugin.to_s
+                    find_task(setupTask) && after("sac:setup:init", "sac:setup:#{setupTask}")
+                end
+            end
+
             desc "Create the directory to contain the application and configure it for SAC management."
             task :init do
                 # create container dir for our app
@@ -92,29 +106,30 @@ Capistrano::Configuration.instance(true).load do
 
             desc "Set up runit"
             task :runit do
-                runit_config = fetch(:sac_runit_config, nil)
-                if runit_config
-                    runit_config[:app_runsvdir_dir]     ||= "#{sac_dir}/runsvdir"
-                    runit_config[:app_services_dir]     ||= "#{deploy_to}/current/service"
-                    runit_config[:app_user]             ||= sac_user
-                    runit_config[:app_group]            ||= sac_group
-                    runit_config[:system_services_dir]  ||= "/service"
+                runit_config = fetch(:sac_runit_config, {})
+                runit_config[:app_runsvdir_dir]     ||= "#{sac_dir}/runsvdir"
+                runit_config[:app_services_dir]     ||= "#{deploy_to}/current/service"
+                runit_config[:app_user]             ||= sac_user
+                runit_config[:app_group]            ||= sac_group
+                runit_config[:system_services_dir]  ||= "/service"
 
-                    as_admin do
-                        # why does this recurse infitely?
-                        sac_rake("'runit:create_runsvdir[#{runit_config[:app_runsvdir_dir]},#{runit_config[:app_services_dir]},#{runit_config[:app_user]},#{runit_config[:app_group]}]'", {})
-                        sac_rake("'runit:install_runsvdir[#{application},#{runit_config[:app_runsvdir_dir]},#{runit_config[:system_services_dir]}]'", { :sudo => true })
-                    end
+                as_admin do
+                    # why does this recurse infitely?
+                    sac_rake("'runit:create_runsvdir[#{runit_config[:app_runsvdir_dir]},#{runit_config[:app_services_dir]},#{runit_config[:app_user]},#{runit_config[:app_group]}]'", {})
+                    sac_rake("'runit:install_runsvdir[#{application},#{runit_config[:app_runsvdir_dir]},#{runit_config[:system_services_dir]}]'", { :sudo => true })
                 end
             end
         end
 
         namespace :restart do
-            desc "Restart runit"
-            task :runit do
-                puts "runit automatically notices new files when the current/ symlink is rewired."
+            desc "Install restart hooks"
+            task :wire do
+                sac_enable.each do |plugin|
+                    restartTask = plugin.to_s
+                    find_task(restartTask) && after("deploy:restart", "sac:restart:#{restartTask}")
+                end
             end
-            
+
             desc "Reload crontab"
             task :crontab do
                 crontab = fetch(:sac_crontab, nil)
@@ -145,7 +160,7 @@ Capistrano::Configuration.instance(true).load do
         else
             rakelibdir = "#{deploy_to}/#{sac_dir}/rake-tasks"
 
-            command = "cd #{deploy_to} && " + (options[:sudo] ? sudo : nil) + " rake -R #{rakelibdir} #{command}"
+            command = "cd #{deploy_to} && " + (options[:sudo] ? sudo : "") + " rake -R #{rakelibdir} #{command}"
             run command
         end
     end
