@@ -148,7 +148,7 @@ Capistrano::Configuration.instance(true).load do
     # runs the specified rake command on the appropriate box (if "local" runs locally, o/w runs on remote)
     # options:
     #   :sudo => true|false
-    def sac_rake(command, options)
+    def sac_rake(command, options = {})
         if stage == :local
             rakelibdir = File.dirname(__FILE__) + "/rake-tasks"
 
