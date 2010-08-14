@@ -200,4 +200,37 @@ Capistrano::Configuration.instance(true).load do
       sessions.values.each { |session| session.close }
       sessions.clear
     end
+
+    def mkdir_p(dir, opts)
+        opts ||= {}
+        opts[:user]     ||= nil
+        opts[:group]    ||= nil
+        opts[:mode]     ||= nil
+        opts[:sudo]     ||= false
+
+        puts dir + opts.inspect
+
+        localSudo = opts[:sudo] ? sudo : ""
+
+        cmds = []
+        if opts[:mode]
+            cmds.push " chmod #{opts[:mode]} #{dir} "
+        end
+        if opts[:user] || opts[:group]
+            userCmd = " chown "
+            if opts[:user]
+                userCmd += "#{opts[:user]}"
+            end
+            if opts[:group]
+                userCmd += ":#{opts[:group]}"
+            end
+            userCmd += " #{dir}"
+            cmds.push userCmd
+        end
+        mkdirCommand = "[ -d #{dir} ] || #{localSudo} mkdir -p #{dir} "
+        if cmds.length
+            mkdirCommand += ("\n && #{localSudo}" + cmds.join("\n && #{localSudo} "))
+        end
+        run mkdirCommand
+    end
 end
